@@ -22,9 +22,7 @@
     {{/if}}
 
     {{each list as li}}
-        {{each li as li2}}
         fdsafdsaf{{li.b}}dsafsf fdsafdsaf{{li.b}}dsafsf<br>
-        {{/each}}
     {{/each}}
 </pre>
 </body>
