@@ -10,7 +10,6 @@
         var reg_loop = /{{(each)\s*?(([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)\s*?as\s*?([a-zA-Z$_][a-zA-Z$_0-9]*))}}([\w\W]*){{\/each}}/ig;
         var reg_condition  = /{{(if)\s*?([a-zA-Z$_0-9\.\[0-9\]\s><=!'"]*)\s?}}([\w\W]*){{\/if}}/ig;
         var reg_ifsep = /{{(else|elseif\s([a-zA-Z$_0-9\.\[0-9\]\s><=!'"]*?))}}/ig;
-        var reg_condition2 ;
 
         // 替换条件语句
         rpl = rpl.replace(reg_condition, function (raw,type,expr,content) {
