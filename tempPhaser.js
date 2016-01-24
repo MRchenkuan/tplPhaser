@@ -8,9 +8,38 @@
 
         var reg_property = /{{([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)}}/ig;
         var reg_loop = /{{(each)\s*?(([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)\s*?as\s*?([a-zA-Z$_][a-zA-Z$_0-9]*))}}([\w\W]*){{\/each}}/ig;
-        var reg_condition  = /{{(if)\s*?([a-zA-Z$_0-9\.\[0-9\]\s><=!]*)\s?}}([\w\W]*){{\/if}}/ig;
-        var reg_ifsep = /{{(else|elseif\s([a-zA-Z$_0-9\.\[0-9\]\s><=!]*?))}}/ig;
+        var reg_condition  = /{{(if)\s*?([a-zA-Z$_0-9\.\[0-9\]\s><=!'"]*)\s?}}([\w\W]*){{\/if}}/ig;
+        var reg_ifsep = /{{(else|elseif\s([a-zA-Z$_0-9\.\[0-9\]\s><=!'"]*?))}}/ig;
         var reg_condition2 ;
+
+        // 替换条件语句
+        rpl = rpl.replace(reg_condition, function (raw,type,expr,content) {
+            //取后续包体
+            content = content.replace(/^[\n\t\r\s]*/ig,"");//去掉两端换行符
+            content = content.replace(/[\n\t\r\s]*$/ig,"");//去掉两端换行符
+            // 提取分割表达式
+            var content_seps = content.match(reg_ifsep);
+            content_seps.some(function(it,id){
+                it = it.replace("{{elseif","");
+                it = it.replace("}}","");
+                it = it.replace("{{else","true");
+                content_seps[id] = it;
+            });
+            // 将最顶部表达式放入第一位
+            content_seps.unshift(expr);
+            console.log(content_seps);
+            // 2.根据else分割语句块
+            var content_blocks = content.split(reg_ifsep);
+
+            // 逐次计算表达式
+            for(var _i=0;_i<content_seps.length;_i++){
+                if(calculateExpr(content_seps[_i],json)){
+                    content = content_blocks[_i*3];
+                    break;
+                }
+            }
+            return content;
+        });
 
         //替换循环语句
         rpl = rpl.replace(reg_loop, function (raw,type,expr,objStr,alias,content) {
@@ -41,34 +70,7 @@
                 return _content;
         });
 
-        // 替换条件语句
-        rpl = rpl.replace(reg_condition, function (raw,type,expr,content) {
-            //取后续包体
-            content = content.replace(/^[\n\t\r\s]*/ig,"");//去掉两端换行符
-            content = content.replace(/[\n\t\r\s]*$/ig,"");//去掉两端换行符
-            // 提取分割表达式
-            var content_seps = content.match(reg_ifsep);
-            content_seps.some(function(it,id){
-                it = it.replace("{{elseif","");
-                it = it.replace("}}","");
-                it = it.replace("{{else","true");
-                content_seps[id] = it;
-            });
-            // 将最顶部表达式放入第一位
-            content_seps.unshift(expr);
-            console.log(content_seps);
-            // 2.根据else分割语句块
-            var content_blocks = content.split(reg_ifsep);
 
-            // 逐次计算表达式
-            for(var _i=0;_i<content_seps.length;_i++){
-                if(calculateExpr(content_seps[_i],json)){
-                    content = content_blocks[_i*3];
-                    break;
-                }
-            }
-            return content;
-        });
         
         // 替换property
         rpl = rpl.replace(reg_property,function(raw,key){
@@ -90,10 +92,17 @@
 
         // 替换链式作用域
         expr = expr.replace(/([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)/,function(raw){
-           return instantProperty(raw,scope);
+            var rst = instantProperty(raw,scope);
+            //如果类型为字符串则在比较之前要加上引号
+            if((typeof rst)=='string'){
+                return "'"+rst+"'"
+            }else{
+                return rst
+            }
         });
         var result;
         try{
+            console.log(expr);
             result = eval("("+expr+")");
         }catch(e){
             result = false;
@@ -111,6 +120,7 @@
         while (objStrArr.length>0){
             _json = _json[objStrArr.shift()]
         }
+
         return _json||str
     }
 })(window);

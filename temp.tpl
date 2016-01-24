@@ -9,7 +9,7 @@
 <p>{{url}}<p>
 <p>{{data2.data1.b[2]}}<p>
 <pre>
-    {{if data1.a >= 5 }}
+    {{if data1.a == 'chenkuan' }}
         ok 5
     {{elseif data1.a>=4}}
         ok 4
