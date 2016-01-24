@@ -7,11 +7,13 @@
     w.tempPhaser = function(rpl,json){
 
         var reg_property = /{{([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)}}/ig;
-        var reg_statement = /{{(each)\s*?(([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)\s*?as\s*?([a-zA-Z$_][a-zA-Z$_0-9]*))}}([\w\W]*){{\/each}}/ig;
+        var reg_loop = /{{(each)\s*?(([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)\s*?as\s*?([a-zA-Z$_][a-zA-Z$_0-9]*))}}([\w\W]*){{\/each}}/ig;
+        var reg_condition  = /{{(if)\s*?([a-zA-Z$_0-9\.\[0-9\]\s><=!]*)\s?}}([\w\W]*){{\/if}}/ig;
+        var reg_ifsep = /{{(else|elseif\s([a-zA-Z$_0-9\.\[0-9\]\s><=!]*?))}}/ig;
+        var reg_condition2 ;
 
         //替换循环语句
-        rpl = rpl.replace(reg_statement, function (raw,type,expr,objStr,alias,content) {
-            if(type == 'each'){// 循环语句
+        rpl = rpl.replace(reg_loop, function (raw,type,expr,objStr,alias,content) {
                 // 实例化 obj
                 var obj = instantProperty(objStr,json);
 
@@ -37,30 +39,68 @@
                 }
 
                 return _content;
-            }
-            //if(type == "if"){// 条件语句
-            //    // 0.将elseif(expr)的表达式分别存入数组,同时将语句块分割放入数组
-            //    // 1.依次判断expr[]得出序号,并执对应的语句块
-            //    // 2.依次判断expr结果,若为真则执行语句块,跳过后续语句块
-            //}
         });
 
+        // 替换条件语句
+        rpl = rpl.replace(reg_condition, function (raw,type,expr,content) {
+            //取后续包体
+            content = content.replace(/^[\n\t\r\s]*/ig,"");//去掉两端换行符
+            content = content.replace(/[\n\t\r\s]*$/ig,"");//去掉两端换行符
+            // 提取分割表达式
+            var content_seps = content.match(reg_ifsep);
+            content_seps.some(function(it,id){
+                it = it.replace("{{elseif","");
+                it = it.replace("}}","");
+                it = it.replace("{{else","true");
+                content_seps[id] = it;
+            });
+            // 将最顶部表达式放入第一位
+            content_seps.unshift(expr);
+            console.log(content_seps);
+            // 2.根据else分割语句块
+            var content_blocks = content.split(reg_ifsep);
+
+            // 逐次计算表达式
+            for(var _i=0;_i<content_seps.length;_i++){
+                if(calculateExpr(content_seps[_i],json)){
+                    content = content_blocks[_i*3];
+                    break;
+                }
+            }
+            return content;
+        });
+        
         // 替换property
         rpl = rpl.replace(reg_property,function(raw,key){
             return instantProperty(key,json);
         });
 
-
         return rpl;
     };
 
-    // 完成 模板属性 到 json属性 的取值
-    function instantProperty(str,json){
+    // 工具方法 - 计算表达式
+    function calculateExpr(expr,scope){
+
+        // 替换链式作用域
+        expr = expr.replace(/([a-zA-Z$_][a-zA-Z$_0-9\.\[0-9\]]*)/,function(raw){
+           return instantProperty(raw,scope);
+        });
+        var result;
+        try{
+            result = eval("("+expr+")");
+        }catch(e){
+            result = false;
+        }
+        return result;
+    }
+
+    // 工具方法 - 完成 模板属性 到 json属性 的取值
+    function instantProperty(str,scope){
         str = str.replace(/\[/g,".").replace(/]\./g,".").replace(/]/g,".").replace(/\.$/g,"");
         var objStrArr = str.split(".");
 
         // 逐级确定 _json的值
-        var _json = json;
+        var _json = scope;
         while (objStrArr.length>0){
             _json = _json[objStrArr.shift()]
         }
